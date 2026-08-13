@@ -1,9 +1,9 @@
-name: Build Server Tester APK
+name: Build UNO No Mercy APK
 
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # يتيح لك تشغيل البناء يدوياً من واجهة GitHub
+  workflow_dispatch:
 
 jobs:
   build:
@@ -39,5 +39,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Server-Tester-APK
+          name: UNO-No-Mercy-Game-APK
           path: build/app/outputs/flutter-apk/app-release.apk
