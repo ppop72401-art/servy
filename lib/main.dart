@@ -2,18 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
-void main() {
-  runApp(const MinimalServerApp());
-}
+void main() => runApp(const HotspotServerApp());
 
-class MinimalServerApp extends StatelessWidget {
-  const MinimalServerApp({super.key});
+class HotspotServerApp extends StatelessWidget {
+  const HotspotServerApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: ServerScreen(),
-    );
+    return const MaterialApp(debugShowCheckedModeBanner: false, home: ServerScreen());
   }
 }
 
@@ -24,7 +19,7 @@ class ServerScreen extends StatefulWidget {
 }
 
 class _ServerScreenState extends State<ServerScreen> {
-  String status = "جاري بدء السيرفر...";
+  String status = "جاري التشغيل...";
   List<WebSocket> clients = [];
 
   @override
@@ -34,59 +29,39 @@ class _ServerScreenState extends State<ServerScreen> {
   }
 
   Future<void> _startServer() async {
-    try {
-      // 1. جلب IP الشبكة (الهوت سبوت)
-      List<String> ips = [];
-      for (var interface in await NetworkInterface.list()) {
-        for (var addr in interface.addresses) {
-          if (addr.type == InternetAddressType.IPv4) ips.add(addr.address);
-        }
+    List<String> ips = [];
+    for (var interface in await NetworkInterface.list()) {
+      for (var addr in interface.addresses) {
+        if (addr.type == InternetAddressType.IPv4) ips.add(addr.address);
       }
-      
-      String hostIp = ips.isNotEmpty ? ips.first : '127.0.0.1';
-
-      // 2. قراءة ملف الواجهة
-      String htmlContent = await rootBundle.loadString('assets/index.html');
-
-      // 3. تشغيل السيرفر على البورت 8080
-      HttpServer server = await HttpServer.bind(InternetAddress.anyIPv4, 8080);
-      
-      setState(() {
-        status = "✅ السيرفر يعمل بنجاح!\n\nللاعبين الآخرين:\nhttp://$hostIp:8080\n\nلك أنت (لتلعب):\nافتح كروم واكتب:\nhttp://127.0.0.1:8080";
-      });
-
-      // 4. الاستماع للاتصالات
-      server.listen((HttpRequest request) {
-        if (request.uri.path == '/ws') {
-          // ترقية الاتصال إلى WebSocket
-          WebSocketTransformer.upgrade(request).then((WebSocket ws) {
-            clients.add(ws);
-            ws.add("مرحباً بك! أنت متصل بالسيرفر الآن."); // رسالة ترحيبية فورية
-
-            ws.listen((data) {
-              // إعادة إرسال أي رسالة لجميع المتصلين للتأكيد
-              for (var client in clients) {
-                if (client.readyState == WebSocket.open) {
-                  client.add(data);
-                }
-              }
-            }, onDone: () => clients.remove(ws));
-          }).catchError((e) {
-            print("خطأ في WebSocket: $e");
-          });
-        } else {
-          // إرسال صفحة الـ HTML
-          request.response
-            ..headers.contentType = ContentType.html
-            ..write(htmlContent)
-            ..close();
-        }
-      });
-    } catch (e) {
-      setState(() {
-        status = "❌ فشل تشغيل السيرفر:\n$e";
-      });
     }
+    
+    setState(() {
+      status = "السيرفر يعمل بنجاح!\n\nرابط انضمام اللاعبين على نفس الشبكة:\nhttp://${ips.isNotEmpty ? ips.first : 'localhost'}:8080\n\nرابط اللعب الخاص بك (على نفس الجهاز):\nhttp://127.0.0.1:8080";
+    });
+
+    String htmlContent = await rootBundle.loadString('assets/index.html');
+    HttpServer server = await HttpServer.bind(InternetAddress.anyIPv4, 8080);
+    
+    server.listen((HttpRequest request) {
+      if (request.uri.path == '/ws') {
+        WebSocketTransformer.upgrade(request).then((WebSocket ws) {
+          clients.add(ws);
+          ws.listen((data) {
+            for (var client in clients) {
+              if (client.readyState == WebSocket.open) {
+                client.add(data);
+              }
+            }
+          }, onDone: () => clients.remove(ws));
+        });
+      } else {
+        request.response
+          ..headers.contentType = ContentType.html
+          ..write(htmlContent)
+          ..close();
+      }
+    });
   }
 
   @override
@@ -96,10 +71,17 @@ class _ServerScreenState extends State<ServerScreen> {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: SelectableText(
-            status,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold, height: 1.8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.wifi_tethering, size: 80, color: Color(0xFF58CC02)),
+              const SizedBox(height: 20),
+              SelectableText(
+                status, 
+                textAlign: TextAlign.center, 
+                style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold, height: 1.5)
+              ),
+            ],
           ),
         ),
       ),
